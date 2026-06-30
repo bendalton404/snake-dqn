@@ -1,7 +1,7 @@
 from env import SnakeEnvironment, ACTIONS
 from agent import Agent_MLP, Agent_CNN
 
-import torch
+
 
 # conducts the training process by facilitating communication between env and agent
 class Conductor:
@@ -11,7 +11,6 @@ class Conductor:
         env = SnakeEnvironment()
         agent = Agent_MLP(target_update_steps=target_update_steps)
         epsilon = epsilon_start
-        train_steps = 0
         scores = []
 
         for episode in range(episodes):
@@ -22,7 +21,7 @@ class Conductor:
             
             if episode % 10 == 0:
                 print(f"episode: {episode}\nLast 3 scores: {scores[-3:]}")
-                torch.save(agent.online_net.state_dict(), 'net_params/online_net.pth')
+                agent.save_online_net()
 
             while not done:
 
