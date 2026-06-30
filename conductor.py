@@ -47,7 +47,7 @@ class Conductor:
 
         return scores
     
-    
+
     @staticmethod
     def view():
         env = SnakeEnvironment()
@@ -62,3 +62,7 @@ class Conductor:
             next_state, reward, done = env.step(action)
             env.printBoard()
             state = next_state
+
+
+if __name__ == "__main__":
+    Conductor.view()

@@ -163,7 +163,7 @@ class Agent_MLP(Agent):
         self.online_net = MultiLayerPerceptron(input_size=16, output_size=4)
         self.target_net = copy.deepcopy(self.online_net)
         self.optimizer = torch.optim.Adam(self.online_net.parameters(), lr=1e-4)
-        self.replay_buffer = ReplayBuffer(state_dim=(16,), buffer_size=20000, min_sample_size=64)
+        self.replay_buffer = ReplayBuffer(state_shape=(16,), buffer_size=20000, min_sample_size=64)
 
 
 class Agent_CNN(Agent):
@@ -176,4 +176,4 @@ class Agent_CNN(Agent):
         self.online_net = ConvolutionalNet(input_channels=4, input_height=10, input_width=10, output_size=4)
         self.target_net = copy.deepcopy(self.online_net)
         self.optimizer = torch.optim.Adam(self.online_net.parameters(), lr=1e-4)
-        self.replay_buffer = ReplayBuffer(state_dim=(4,10,10), buffer_size=20000, min_sample_size=64)
+        self.replay_buffer = ReplayBuffer(state_shape=(4,10,10), buffer_size=20000, min_sample_size=64)
