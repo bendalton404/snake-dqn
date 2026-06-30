@@ -6,15 +6,46 @@ import copy
 class NeuralNet(nn.Module):
     def __init__(self, input_size, output_size):
         super().__init__()
-        self.fc0 = nn.Linear(input_size, 64)
-        self.fc1 = nn.Linear(64, 64)
-        self.fc2 = nn.Linear(64, output_size)
+        self.fc0 = nn.Linear(in_features=input_size, out_features=64)
+        self.fc1 = nn.Linear(in_features=64, out_features=64)
+        self.fc2 = nn.Linear(in_features=64, out_features=output_size)
         
+    # x is a mini batch from the replay buffer
     def forward(self, x):
         x = torch.relu(self.fc0.forward(x))
         x = torch.relu(self.fc1.forward(x))
         return self.fc2.forward(x)
- 
+
+
+class ConvolutionalNet(nn.Module):
+    def __init__(self, input_channels, input_height, input_width, output_size):
+        super().__init__()
+        self.con0 = nn.Conv2d(in_channels=input_channels, out_channels=16, kernel_size=(3,3))
+        self.con1 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(3,3))
+        self.pool0 = nn.MaxPool2d(kernel_size=(2,2))
+
+        # to find the number of inputs, do a forward pass on zero data 
+        # to find the shape of the final convolutional layer
+        # e.g. torch.zeros(batch, channels, height, width)
+        with torch.no_grad():
+            x = torch.zeros((1, input_channels, input_height, input_width))
+            x = self.pool0.forward(self.con1.forward(self.con0.forward(x)))
+            flatten_size = x.flatten(start_dim=1).shape[1]
+
+        self.fc0 = nn.Linear(in_features=flatten_size, out_features=64)
+        self.fc1 = nn.Linear(in_features=64, out_features=output_size)
+
+    # x is a mini batch from the replay buffer
+    def forward(self, x):
+        x = torch.relu(self.con0.forward(x))
+        x = torch.relu(self.con1.forward(x))
+        x = self.pool0.forward(x)
+
+        # start_dim=1 so the batch isn't flattened together
+        x = torch.flatten(x, start_dim=1)
+        x = torch.relu(self.fc0.forward(x))
+        return self.fc1.forward(x)
+
 
 class ReplayBuffer:
     def __init__(self, state_dim, max_size, min_sample_size):
@@ -65,3 +96,4 @@ class Agent:
     
     def update_target_net(self):
         self.target_net.load_state_dict(self.online_net.state_dict())
+        
