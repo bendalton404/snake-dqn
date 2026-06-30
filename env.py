@@ -2,7 +2,6 @@ from collections import deque
 import random, os, torch, time
 import numpy as np
 
-
 OUT_OF_BOUNDS = -1
 GRASS = 0
 APPLE = 1
@@ -164,23 +163,3 @@ class SnakeEnvironment:
         display += "@@" * (self.boardDims[1] + 2)
         print(display)
         time.sleep(1/10)
-
-
-# load the saved network and view an episode
-# play greedily
-if __name__ == "__main__":
-    from agent import Agent
-    env = SnakeEnvironment()
-    agent = Agent()
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(BASE_DIR, 'net_params', 'online_net.pth')
-    agent.online_net.load_state_dict(torch.load(path))
-    done = False
-    env.reset()
-    state = env.startState()
-    while not done:
-        Q_values = agent.online_net.forward(torch.tensor(state, dtype=torch.float32))
-        action = np.argmax(Q_values.detach().numpy())
-        next_state, reward, done = env.step(action)
-        env.printBoard()
-        state = next_state
