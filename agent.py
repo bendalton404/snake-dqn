@@ -48,17 +48,20 @@ class ConvolutionalNet(nn.Module):
 
 
 class ReplayBuffer:
-    def __init__(self, state_dim, max_size, min_sample_size):
+    def __init__(self, state_shape, buffer_size, min_sample_size):
         self.min_sample_size = min_sample_size
-        self.max_size = max_size
+        self.buffer_size = buffer_size
         self.ptr = 0
         self.size = 0
 
-        self.states = np.zeros((max_size, state_dim), dtype=np.float32)
-        self.actions = np.zeros((max_size,), dtype=np.int64)
-        self.rewards = np.zeros((max_size,), dtype=np.float32)
-        self.next_states = np.zeros((max_size, state_dim), dtype=np.float32)
-        self.dones = np.zeros((max_size,), dtype=np.int64)
+        state_buffer_shape = (buffer_size,) + state_shape
+        other_buffer_shape = (buffer_size,)
+
+        self.states = np.zeros(shape=state_buffer_shape, dtype=np.float32)
+        self.actions = np.zeros(shape=other_buffer_shape, dtype=np.int64)
+        self.rewards = np.zeros(shape=other_buffer_shape, dtype=np.float32)
+        self.next_states = np.zeros(shape=state_buffer_shape, dtype=np.float32)
+        self.dones = np.zeros(shape=other_buffer_shape, dtype=np.int64)
 
     def is_ready(self):
         return self.size >= self.min_sample_size
@@ -69,31 +72,40 @@ class ReplayBuffer:
         self.rewards[self.ptr] = r
         self.next_states[self.ptr] = s2
         self.dones[self.ptr] = d
-
-        self.ptr = (self.ptr + 1) % self.max_size
-        self.size = min(self.size + 1, self.max_size)
+        self.ptr = (self.ptr + 1) % self.buffer_size
+        self.size = min(self.size + 1, self.buffer_size)
 
     def sample(self, batch_size):
         idx = np.random.randint(0, self.size, size=batch_size)
-
         states = torch.tensor(self.states[idx], dtype=torch.float32)
         actions = torch.tensor(self.actions[idx], dtype=torch.long)
         rewards = torch.tensor(self.rewards[idx], dtype=torch.float32)
         next_states = torch.tensor(self.next_states[idx], dtype=torch.float32)
         dones = torch.tensor(self.dones[idx], dtype=torch.long)
-
         return states, actions, rewards, next_states, dones
     
 
-class Agent:
+class Agent_MLP:
     def __init__(self):
-        # state representation is a 16 element vector for snake
-        # 4 actions possible, go NESW
-        self.online_net = NeuralNet(16, 4)
+        # state representation is a 16 element vector
+        self.online_net = NeuralNet(input_size=16, output_size=4)
         self.target_net = copy.deepcopy(self.online_net)
         self.optimizer = torch.optim.Adam(self.online_net.parameters(), lr=1e-4)
-        self.replay_buffer = ReplayBuffer(16, 20000, 64)
+        self.replay_buffer = ReplayBuffer(state_dim=(16,), buffer_size=20000, min_sample_size=64)
     
     def update_target_net(self):
         self.target_net.load_state_dict(self.online_net.state_dict())
-        
+
+
+class Agent_CNN:
+    def __init__(self):
+        # state representation is a 4 channel board
+        # channels for walls, apple, snake head, snake body
+        # a cell is implicitly grass if it is 0 in all 4 channels
+        self.online_net = ConvolutionalNet(input_channels=4, input_height=10, input_width=10, output_size=4)
+        self.target_net = copy.deepcopy(self.online_net)
+        self.optimizer = torch.optim.Adam(self.online_net.parameters(), lr=1e-4)
+        self.replay_buffer = ReplayBuffer(state_dim=(4,10,10), buffer_size=20000, min_sample_size=64)
+    
+    def update_target_net(self):
+        self.target_net.load_state_dict(self.online_net.state_dict())
