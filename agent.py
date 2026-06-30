@@ -102,7 +102,7 @@ class Agent:
         self.target_net.load_state_dict(self.online_net.state_dict())
 
     def save_online_net(self):
-        torch.save(self.online_net.state_dict(), 'net_params/online_net/pth')
+        torch.save(self.online_net.state_dict(), 'net_params/online_net.pth')
 
     def load_online_net(self):
         base = os.path.dirname(os.path.abspath(__file__))
@@ -144,9 +144,9 @@ class Agent:
         taken_action_qval = qvals[torch.arange(batch_size), actions]
 
         # loss + optimize
-        self.loss.forward(taken_action_qval, td_target)
+        loss = self.loss.forward(taken_action_qval, td_target)
         self.optimizer.zero_grad()
-        self.loss.backward()
+        loss.backward()
         self.optimizer.step()
 
         # update target network if necessary

@@ -16,10 +16,10 @@ class Conductor:
         for episode in range(episodes):
             score = 0
             env.reset()
-            state = env.startState()
+            state = env.encode_state_for_mlp()
             done = False
             
-            if episode % 10 == 0:
+            if episode > 0 and episode % 10 == 0:
                 print(f"episode: {episode}\nLast 3 scores: {scores[-3:]}")
                 agent.save_online_net()
 
@@ -29,7 +29,8 @@ class Conductor:
                 action = agent.choose_action(state, epsilon)
 
                 # perform action
-                next_state, reward, done = env.step(action)
+                reward, done = env.step(action)
+                next_state = env.encode_state_for_mlp()
 
                 score += reward
 
@@ -54,11 +55,12 @@ class Conductor:
         agent.load_online_net()
         done = False
         env.reset()
-        state = env.startState()
+        state = env.encode_state_for_mlp()
         while not done:
             # play greedily
             action = agent.choose_action(state, 0)
-            next_state, reward, done = env.step(action)
+            reward, done = env.step(action)
+            next_state = env.encode_state_for_mlp()
             env.printBoard()
             state = next_state
 
