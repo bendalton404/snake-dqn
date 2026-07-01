@@ -40,6 +40,7 @@ class ConvolutionalNet(nn.Module):
 
     # x is a mini batch from the replay buffer
     def forward(self, x):
+        print(x.shape)
         x = torch.relu(self.con0.forward(x))
         x = torch.relu(self.con1.forward(x))
         x = self.pool0.forward(x)
@@ -116,7 +117,7 @@ class Agent:
         if random.random() < epsilon:
             action = random.choice(ACTIONS)
         else:
-            state = torch.tensor(data=state, dtype=torch.float32)
+            state = torch.tensor(data=[state], dtype=torch.float32)
             qvals = self.online_net.forward(state)
             action = np.argmax(qvals.detach().numpy())
         return action

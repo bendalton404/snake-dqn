@@ -116,7 +116,25 @@ class SnakeEnvironment:
 
 
     def encode_state_for_cnn(self):
-        return
+        walls = [[0 for _ in range(self.board_dims[1])] for _ in range(self.board_dims[0])]
+        snakeHead = [[0 for _ in range(self.board_dims[0])] for _ in range(self.board_dims[1])]
+        snakeBody = [[0 for _ in range(self.board_dims[0])] for _ in range(self.board_dims[1])]
+        apple = [[0 for _ in range(self.board_dims[0])] for _ in range(self.board_dims[1])]
+
+        for y in range(self.board_dims[0]):
+            for x in range(self.board_dims[1]):
+                if (y, x) in self.grass:
+                    continue
+                if (y, x) in self.walls:
+                    walls[y][x] = 1
+                elif (y, x) == self.apple:
+                    apple[y][x] = 1
+                elif (y, x) == self.snake[0]:
+                    snakeHead[y][x] = 1
+                else:
+                    snakeBody[y][x] = 1
+        
+        return [walls, snakeHead, snakeBody, apple]
 
 
     def step(self, action: int):
@@ -148,7 +166,6 @@ class SnakeEnvironment:
         return 5, False # ate apple
 
 
-    
     def printBoard(self):
         # print the board to the terminal to watch an episode and view learning progress
         os.system("cls")

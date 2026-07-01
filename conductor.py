@@ -9,14 +9,14 @@ class Conductor:
     @staticmethod
     def train(episodes, gamma, epsilon_start, epsilon_decay, batch_size, target_update_steps):
         env = SnakeEnvironment()
-        agent = Agent_MLP(target_update_steps=target_update_steps)
+        agent = Agent_CNN(target_update_steps=target_update_steps)
         epsilon = epsilon_start
         scores = []
 
         for episode in range(episodes):
             score = 0
             env.reset()
-            state = env.encode_state_for_mlp()
+            state = env.encode_state_for_cnn()
             done = False
             
             if episode > 0 and episode % 10 == 0:
@@ -30,7 +30,7 @@ class Conductor:
 
                 # perform action
                 reward, done = env.step(action)
-                next_state = env.encode_state_for_mlp()
+                next_state = env.encode_state_for_cnn()
 
                 score += reward
 
