@@ -6,6 +6,15 @@ import random
 from env import ACTIONS
 import os
 
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+else:
+    device = torch.device("cpu")
+
+print(f"using device: {device}")
+
 class MultiLayerPerceptron(nn.Module):
     def __init__(self, input_size, output_size):
         super().__init__()
@@ -25,6 +34,7 @@ class ConvolutionalNet(nn.Module):
         super().__init__()
         self.con0 = nn.Conv2d(in_channels=input_channels, out_channels=16, kernel_size=(3,3))
         self.con1 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=(3,3))
+        self.con2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3,3))
         self.pool0 = nn.MaxPool2d(kernel_size=(2,2))
 
         # to find the number of inputs, do a forward pass on zero data 
@@ -32,7 +42,7 @@ class ConvolutionalNet(nn.Module):
         # e.g. torch.zeros(batch, channels, height, width)
         with torch.no_grad():
             x = torch.zeros((1, input_channels, input_height, input_width))
-            x = self.pool0.forward(self.con1.forward(self.con0.forward(x)))
+            x = self.pool0.forward(self.con2.forward(self.con1.forward(self.con0.forward(x))))
             flatten_size = x.flatten(start_dim=1).shape[1]
 
         self.fc0 = nn.Linear(in_features=flatten_size, out_features=64)
@@ -40,9 +50,9 @@ class ConvolutionalNet(nn.Module):
 
     # x is a mini batch from the replay buffer
     def forward(self, x):
-        print(x.shape)
         x = torch.relu(self.con0.forward(x))
         x = torch.relu(self.con1.forward(x))
+        x = torch.relu(self.con2.forward(x))
         x = self.pool0.forward(x)
 
         # start_dim=1 so the batch isn't flattened together
@@ -81,11 +91,11 @@ class ReplayBuffer:
 
     def sample(self, batch_size):
         idx = np.random.randint(0, self.size, size=batch_size)
-        states = torch.tensor(self.states[idx], dtype=torch.float32)
-        actions = torch.tensor(self.actions[idx], dtype=torch.long)
-        rewards = torch.tensor(self.rewards[idx], dtype=torch.float32)
-        next_states = torch.tensor(self.next_states[idx], dtype=torch.float32)
-        dones = torch.tensor(self.dones[idx], dtype=torch.long)
+        states = torch.tensor(self.states[idx], dtype=torch.float32).to(device)
+        actions = torch.tensor(self.actions[idx], dtype=torch.long).to(device)
+        rewards = torch.tensor(self.rewards[idx], dtype=torch.float32).to(device)
+        next_states = torch.tensor(self.next_states[idx], dtype=torch.float32).to(device)
+        dones = torch.tensor(self.dones[idx], dtype=torch.long).to(device)
         return states, actions, rewards, next_states, dones
 
 
@@ -93,7 +103,7 @@ class Agent:
     def __init__(self, target_update_steps):
         self.online_net: nn.Module = None
         self.target_net: nn.Module = None
-        self.loss: nn.MSELoss = nn.MSELoss()
+        self.loss: nn.MSELoss = nn.MSELoss().to(device)
         self.optimizer: torch.optim.Adam = None
         self.replay_buffer: ReplayBuffer = None
         self.train_steps = 0
@@ -117,9 +127,9 @@ class Agent:
         if random.random() < epsilon:
             action = random.choice(ACTIONS)
         else:
-            state = torch.tensor(data=[state], dtype=torch.float32)
+            state = torch.tensor(data=state, dtype=torch.float32).unsqueeze(0).to(device)
             qvals = self.online_net.forward(state)
-            action = np.argmax(qvals.detach().numpy())
+            action = torch.argmax(qvals).item()
         return action
     
     def train_mini_batch(self, batch_size, gamma):
@@ -132,8 +142,8 @@ class Agent:
         # calculate the td target on all transitions
         # this uses the second state in the transition to bootstrap from
         next_qvals = self.target_net.forward(next_states)
-        next_max_qval, next_max_qval_action = torch.max(next_qvals, dim=1)
-        td_target = rewards + gamma * (1 - dones) * next_max_qval
+        next_max_qval, _ = torch.max(next_qvals, dim=1)
+        td_target = (rewards + gamma * (1 - dones.float()) * next_max_qval).detach()
 
         # calculate the Q values of the first state in the transition
         qvals = self.online_net.forward(states)
@@ -161,8 +171,8 @@ class Agent_MLP(Agent):
         super().__init__(target_update_steps=target_update_steps)
 
         # state representation is a 16 element vector
-        self.online_net = MultiLayerPerceptron(input_size=16, output_size=4)
-        self.target_net = copy.deepcopy(self.online_net)
+        self.online_net = MultiLayerPerceptron(input_size=16, output_size=4).to(device)
+        self.target_net = copy.deepcopy(self.online_net).to(device)
         self.optimizer = torch.optim.Adam(self.online_net.parameters(), lr=1e-4)
         self.replay_buffer = ReplayBuffer(state_shape=(16,), buffer_size=20000, min_sample_size=64)
 
@@ -174,7 +184,7 @@ class Agent_CNN(Agent):
         # state representation is a 4 channel board
         # channels for walls, apple, snake head, snake body
         # a cell is implicitly grass if it is 0 in all 4 channels
-        self.online_net = ConvolutionalNet(input_channels=4, input_height=10, input_width=10, output_size=4)
-        self.target_net = copy.deepcopy(self.online_net)
+        self.online_net = ConvolutionalNet(input_channels=4, input_height=10, input_width=10, output_size=4).to(device)
+        self.target_net = copy.deepcopy(self.online_net).to(device)
         self.optimizer = torch.optim.Adam(self.online_net.parameters(), lr=1e-4)
         self.replay_buffer = ReplayBuffer(state_shape=(4,10,10), buffer_size=20000, min_sample_size=64)

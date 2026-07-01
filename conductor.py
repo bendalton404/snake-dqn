@@ -7,7 +7,7 @@ from agent import Agent_MLP, Agent_CNN
 class Conductor:
 
     @staticmethod
-    def train(episodes, gamma, epsilon_start, epsilon_decay, batch_size, target_update_steps):
+    def train(episodes, gamma, epsilon_start, epsilon_end, epsilon_decay, batch_size, target_update_steps):
         env = SnakeEnvironment()
         agent = Agent_CNN(target_update_steps=target_update_steps)
         epsilon = epsilon_start
@@ -20,13 +20,13 @@ class Conductor:
             done = False
             
             if episode > 0 and episode % 10 == 0:
-                print(f"episode: {episode}\nLast 3 scores: {scores[-3:]}")
+                print(f"Last 10 avg score:  {sum(scores[-10:])/10}")
                 agent.save_online_net()
 
             while not done:
 
                 # choose action with epsilon greedy policy
-                action = agent.choose_action(state, epsilon)
+                action = agent.choose_action(state, max(epsilon, epsilon_end))
 
                 # perform action
                 reward, done = env.step(action)
@@ -44,6 +44,7 @@ class Conductor:
 
             epsilon *= epsilon_decay
             scores.append(score)
+            print(f"finished episode: {episode}")
 
         return scores
     
